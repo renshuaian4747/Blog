@@ -1,7 +1,7 @@
 # ITerm2 主题配置
 
 ### 最终效果
-![最终效果](../assets/iterm%E6%9C%80%E7%BB%88%E6%95%88%E6%9E%9C.jpg)
+![最终效果](../assets/%E6%9C%80%E7%BB%88%E6%95%88%E6%9E%9C.jpg)
 
 ### 第一步：
 1. 克隆[配置文件仓库](https://github.com/chongqiangchen/iterm-config/tree/master)
