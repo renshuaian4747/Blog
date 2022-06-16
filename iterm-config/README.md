@@ -21,8 +21,8 @@
 1. 在 ~/.oh-my-zsh/custom/plugins/ 目录下克隆[语法高亮仓库](https://github.com/zsh-users/zsh-syntax-highlighting)
 2. 进入 zshrc
 ```sh
-cd
-vim .zshrc
+$ cd
+$ vim .zshrc
 ```
 3. 配置 zshrc
 
@@ -40,7 +40,12 @@ ZSH_THEME="powerlevel9k/powerlevel9k"
 source $ZSH/oh-my-zsh.sh
 ```
 
-引入powerlevel9k的设置：
+4. 安装 powerlevel9k 主题：
+```sh
+$ git clone https://github.com/bhilburn/powerlevel9k.git ~/.oh-my-zsh/custom/themes/powerlevel9k
+```
+
+5. 引入powerlevel9k的设置：
 
 ```sh
 POWERLEVEL9K_OS_ICON_BACKGROUND='black'
