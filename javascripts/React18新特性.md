@@ -179,7 +179,27 @@ const id = useId();
 ```
 支持同一个组件在客户端和服务端生成相同的唯一的 ID，避免 hydration 的不兼容，这解决了在 React 17 及 17 以下版本中已经存在的问题。因为我们的服务器渲染时提供的 HTML 是无序的，useId 的原理就是每个 id 代表该组件在组件树中的层级结构。
 ### 二、useSyncExternalStore
+用于将库深度整合到React当中，通常不会用于实际业务开发当中。
 ### 三、useInsertionEffect
+```tsx
+const useCSS = rule => {
+  useInsertionEffect(() => {
+    if (!isInserted.has(rule)) {
+      isInserted.add(rule);
+      document.head.appendChild(getStyleForRule(rule));
+    }
+  });
+  return rule;
+};
+
+const App: React.FC = () => {
+  const className = useCSS(rule);
+  return <div className={className} />;
+};
+
+export default App;
+```
+这个 Hooks 只建议 css-in-js 库来使用。 这个 Hooks 执行时机在 DOM 生成之后，useLayoutEffect 之前，它的工作原理大致和 useLayoutEffect 相同，只是此时无法访问 DOM 节点的引用，一般用于提前注入 < style > 脚本。
 
 ## Concurrent Mode（并发模式）
 **CM 本身并不是一个功能，而是一个底层设计**
@@ -191,4 +211,46 @@ const id = useId();
 
 **开启并发模式就是开启了并发更新么？**
 
+NO！ 在 React 17 中一些实验性功能里面，开启并发模式就是开启了并发更新，但是在 React 18 正式版发布后，由于官方策略调整，React 不再依赖并发模式开启并发更新了。
+
+换句话说：**开启了并发模式，并不一定开启了并发更新**
+
 ![关系图](../assets/%E5%B9%B6%E5%8F%91%E6%A8%A1%E5%BC%8F%E5%B9%B6%E5%8F%91%E6%9B%B4%E6%96%B0.jpg)
+
+## 并发特性（并发特性指开启并发模式后才能使用的特性）
+### 一、useTransition / useDeferredValue
+useDeferredValue 和 startTransition 一样，都是标记了一次非紧急更新。
+* 相同：useDeferredValue 本质上和内部实现与 useTransition 一样，都是标记成了延迟更新任务。
+* 不同：useTransition 是把更新任务变成了延迟更新任务，而 useDeferredValue 是产生一个新的值，这个值作为延时状态。（一个用来包装方法，一个用来包装值）
+```tsx
+import React, { useDeferredValue, useEffect, useState, useTransition } from 'react';
+
+export const Demo = () => {
+  const [searchValue, setSearchValue] = useState(100);
+  // const deferredSearchValue = useDeferredValue(searchValue);
+
+  return (
+    <>
+      <input
+        type='number'
+        value={searchValue}
+        onChange={(e) => {
+          setSearchValue(Number(e.target.value) || 0);
+        }}
+      />
+
+      {/* {new Array(deferredSearchValue).fill(0).map((_, idx) => (
+        <li key={idx}>{idx}</li>
+      ))} */}
+      {new Array(searchValue).fill(0).map((_, idx) => (
+        <li key={idx}>{idx}</li>
+      ))}
+    </>
+  );
+};
+```
+
+### 结论
+* 并发更新的意义就是交替执行不同的任务，当预留的时间不够用时，React 将线程控制权交还给浏览器，等待下一帧时间到来，然后继续被中断的工作
+* 并发模式是实现并发更新的基本前提
+* 时间切片是实现并发更新的具体手段
