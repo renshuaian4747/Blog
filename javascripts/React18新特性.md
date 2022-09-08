@@ -177,3 +177,18 @@ export default App;
 ```tsx
 const id = useId();
 ```
+支持同一个组件在客户端和服务端生成相同的唯一的 ID，避免 hydration 的不兼容，这解决了在 React 17 及 17 以下版本中已经存在的问题。因为我们的服务器渲染时提供的 HTML 是无序的，useId 的原理就是每个 id 代表该组件在组件树中的层级结构。
+### 二、useSyncExternalStore
+### 三、useInsertionEffect
+
+## Concurrent Mode（并发模式）
+**CM 本身并不是一个功能，而是一个底层设计**
+并发模式可帮助应用保持响应，并根据用户的设备性能和网速进行适当的调整，该模式通过使渲染可中断来修复阻塞渲染限制。在 Concurrent 模式中，React 可以同时更新多个状态。
+
+**React 17 和 React 18 的区别就是：从同步不可中断更新变成了异步可中断更新。**
+
+在 React 18 中，提供了新的 root api，我们只需要把 render 升级成 createRoot(root).render(< App />) 就可以开启并发模式了。
+
+**开启并发模式就是开启了并发更新么？**
+
+![关系图](../assets/%E5%B9%B6%E5%8F%91%E6%A8%A1%E5%BC%8F%E5%B9%B6%E5%8F%91%E6%9B%B4%E6%96%B0.jpg)
