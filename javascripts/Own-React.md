@@ -202,8 +202,8 @@ MyReact.render(
   container
 )
 ```
-对应的 fiber tree 如下：
-![fiber树](../assets/fiber%E6%A0%91.png)
+对应的 fiber tree 如下：<br/>
+![fiber树](../assets/fiber%E6%A0%91.png)<br/>
 我们要实现一种用来实现虚拟 dom 的数据结构，能实现3件事情
 * add the element to the DOM
 * create the fibers for the element's children
@@ -312,6 +312,5 @@ function performUnitOfWork(fiber) {
 这里有一点值得细品，React.createElement 返回的 **element tree** 和 performUnitOfWork 创建的 **fiber tree** 有什么联系？
 
 * **React Element Tree** 是由 **React.createElement** 方法创建的树形结构对象
-* **Fiber Tree** 是根据 **React Element Tree** 创建来的树。每个 Fiber 节点保存着真是的 DOM 节点，并且保存着对 **React Element Tree** 中对应的 Element 节点的应用。注意，Element 节点并不会保存对 Fiber 节点的应用
-
-![reactElement-fibers-dom](../assets/reactDom-fiber-dom.webp)
+* **Fiber Tree** 是根据 **React Element Tree** 创建来的树。每个 Fiber 节点保存着真是的 DOM 节点，并且保存着对 **React Element Tree** 中对应的 Element 节点的应用。注意，Element 节点并不会保存对 Fiber 节点的应用<br/>
+![reactElement-fibers-dom](../assets/reactDom-fiber-dom.webp)<br/>
