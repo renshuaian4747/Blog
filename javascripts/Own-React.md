@@ -186,5 +186,132 @@ Fiber 包含三层含义：
 * 作为动态的工作单元来说，每个 Fiber 节点保存了本次更新中该组件改变的状态、要执行的工作等
 
 Fiber的几点冷知识：
-* 一个Fiber节点对应一个React Element节点，同时也是一个工作单元
-* 每个fiber节点都有指向第一个子元素，下一个兄弟元素，父元素的指针
+* 一个 Fiber 节点对应一个React Element节点，同时也是一个工作单元
+* 每个 fiber 节点都有指向第一个子元素，下一个兄弟元素，父元素的指针
+
+以下面代码为例：
+```tsx
+MyReact.render(
+  <div>
+    <h1>
+      <p />
+      <a />
+    </h1>
+    <h2 />
+  </div>,
+  container
+)
+```
+对应的 fiber tree 如下：
+![fiber树](../assets/fiber%E6%A0%91.png)
+我们要实现一种用来实现虚拟 dom 的数据结构，能实现3件事情
+* add the element to the DOM
+* create the fibers for the element's children
+* select the next unit of work
+
+所以必须有三类节点
+* 能找到下一个单元
+* 能找到下一个兄弟节点
+* 能找到父节点
+
+首先把 render 的创建 dom 函数单独抽取出来
+```tsx
+function createDom(fiber) {
+  const dom =
+    fiber.type == "TEXT_ELEMENT"
+      ? document.createTextNode("")
+      : document.createElement(fiber.type)
+
+  const isProperty = key => key !== "children"
+  Object.keys(fiber.props)
+    .filter(isProperty)
+    .forEach(name => {
+      dom[name] = fiber.props[name]
+    })
+
+  return dom
+}
+```
+在 render 函数中设置 nextUnitOfWork
+```tsx
+function render(element, container) {
+  nextUnitOfWork = {
+    dom: container,
+    props: {
+      children: [element],
+    },
+  }
+  // ....
+}
+
+let nextUnitOfWork = null
+
+function workLoop(deadline) {
+  let shouldYield = false
+  while (nextUnitOfWork && !shouldYield) {
+    nextUnitOfWork = performUnitOfWork(
+      nextUnitOfWork
+    )
+    shouldYield = deadline.timeRemaining() < 1
+  }
+  requestIdleCallback(workLoop)
+}
+​
+requestIdleCallback(workLoop)
+```
+实现 performUnitOfWork。这个函数就是构建 fiber 的基本实现
+```tsx
+// performUnitOfWork函数主要逻辑：
+//   将element元素添加到DOM
+//   给element的子元素创建对应的fiber节点
+//   返回下一个工作单元，即下一个fiber节点，查找过程：
+//      1.如果有子元素，则返回子元素的fiber节点
+//      2.如果没有子元素，则返回兄弟元素的fiber节点
+//      3.如果既没有子元素又没有兄弟元素，则往上查找其父节点的兄弟元素的fiber节点
+//      4.如果往上查找到root fiber节点，说明render过程已经结束
+function performUnitOfWork(fiber) {
+  // 第一步 根据fiber节点创建真实的dom节点，并保存在fiber.dom属性中
+  if(!fiber.dom){
+    fiber.dom = createDom(fiber)
+  }
+  // 第二步 将当前fiber节点的真实dom添加到父节点中，注意，这一步是会触发浏览器回流重绘的！！！
+  if(fiber.parent){
+    fiber.parent.dom.appendChild(fiber.dom)
+  }
+  // 第三步 给子元素创建对应的fiber节点
+  const children = fiber.props.children
+  let prevSibling
+  children.forEach((child, index) => {
+    const newFiber = {
+      type: child.type,
+      props: child.props,
+      parent: fiber,
+      dom: null
+    }
+    if(index === 0){
+      fiber.child = newFiber
+    } else {
+      prevSibling.sibling = newFiber
+    }
+    prevSibling = newFiber
+  })
+  // 第四步，查找下一个工作单元
+  if(fiber.child){
+    return fiber.child
+  }
+  let nextFiber = fiber
+  while(nextFiber){
+    if(nextFiber.sibling){
+      return nextFiber.sibling
+    }
+    nextFiber = nextFiber.parent
+  }
+ 
+}
+```
+这里有一点值得细品，React.createElement 返回的 **element tree** 和 performUnitOfWork 创建的 **fiber tree** 有什么联系？
+
+* **React Element Tree** 是由 **React.createElement** 方法创建的树形结构对象
+* **Fiber Tree** 是根据 **React Element Tree** 创建来的树。每个 Fiber 节点保存着真是的 DOM 节点，并且保存着对 **React Element Tree** 中对应的 Element 节点的应用。注意，Element 节点并不会保存对 Fiber 节点的应用
+
+![reactElement-fibers-dom](../assets/reactDom-fiber-dom.webp)
