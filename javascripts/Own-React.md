@@ -137,7 +137,7 @@ render 函数是递归构建 dom 树，最后才 append 到 root container，最
 真实React代码中没有使用 requestIdleCallback 这个api，因为有兼容性问题。因此React使用 scheduler package 模拟这个调度过程
 
 简单介绍 requestIdleCallback
-1. 使用方法：requestIdleCallback(callback,[options])
+1. 使用方法：requestIdleCallback(callback[, options])
 2. callback 函数会接受一个 IdleDeadline 参数，该参数有一个 IdleDeadline.timeRemaining() 方法，当返回值是浮点数值。它用来表示当前闲置周期的预估剩余毫秒数。如果 idle period 已经结束，则它的值是0。
 
 ```tsx
@@ -314,3 +314,135 @@ function performUnitOfWork(fiber) {
 * **React Element Tree** 是由 **React.createElement** 方法创建的树形结构对象
 * **Fiber Tree** 是根据 **React Element Tree** 创建来的树。每个 Fiber 节点保存着真是的 DOM 节点，并且保存着对 **React Element Tree** 中对应的 Element 节点的应用。注意，Element 节点并不会保存对 Fiber 节点的应用<br/>
 ![reactElement-fibers-dom](../assets/reactDom-fiber-dom.webp)<br/>
+
+## STEP 5：Render and Commit 阶段
+上一步的 **performUnitOfWork** 有些问题，在第二步中我们直接将新创建的真实 dom 节点挂载到了容器上，这样会带来两个问题：
+* 每次执行 **performUnitOfWork** 都会造成浏览器回流重绘，因为真实的 dom 已经被添加到浏览器上了，性能极差
+* 浏览器是可以打断渲染过程的，因此可能造成用户看不到完整的UI界面
+
+所以我们需要改造代码，在 performUnitOfWork 阶段不把真实的 dom 节点挂载到容器上。保存 fiber tree 根节点的引用。等到 fiber tree 构建完成，再一次性提交真实的 dom 节点并且添加到容器上。
+
+所以我们需要创建一个变量去追踪 fiber root 叫 **wipRoot**
+
+同时，我们需要在所有工作完成之后，有一个 commit 操作。**commitWork**
+
+最后代码：
+```tsx
+// 根据fiber节点创建真实dom节点
+function createDom(fiber) {
+  const dom = fiber.type === 'TEXT_ELEMENT' ? document.createTextNode("") : document.createElement(fiber.type)
+  const isProperty = key => key !== 'children'
+  Object.keys(fiber.props)
+    .filter(isProperty)
+    .forEach(name => {
+      dom[name] = fiber.props[name]
+    })
+  return dom
+}
+
+let nextUnitOfWork = null
+
+let wipRoot = null
+
+function render(element, container){
+  wipRoot = {
+    dom: container,
+    props: {
+      children: [element], // 此时的element还只是React.createElement函数创建的virtual dom树
+    },
+  }
+  nextUnitOfWork = wipRoot
+}
+
+function commitRoot(){
+  commitWork(wipRoot.child)
+  wipRoot = null
+}
+
+function commitWork(fiber){
+  if(!fiber){
+    return
+  }
+  const domParent = fiber.parent.dom;
+  domParent.appendChild(fiber.dom)
+  commitWork(fiber.child)
+  commitWork(fiber.sibling)
+}
+
+function workLoop(deadline) {
+  let shouldYield = false // 是否让步
+  while (nextUnitOfWork && !shouldYield) {
+    nextUnitOfWork = performUnitOfWork(nextUnitOfWork)
+    shouldYield = deadline.timeRemaining() < 1
+  }
+  if(!nextUnitOfWork && wipRoot){
+    commitRoot()
+  }
+  requestIdleCallback(workLoop)
+}
+
+requestIdleCallback(workLoop)
+
+function performUnitOfWork(fiber) {
+  // 第一步 根据fiber节点创建真实的dom节点，并保存在fiber.dom属性中
+  if(!fiber.dom){
+    fiber.dom = createDom(fiber)
+  }
+  // 第二步 将当前fiber节点的真实dom添加到父节点中，注意，这一步是会触发浏览器回流重绘的！！！
+  // if(fiber.parent){
+  //   fiber.parent.dom.appendChild(fiber.dom)
+  // }
+  // 第三步 给子元素创建对应的fiber节点
+  const children = fiber.props.children
+  let prevSibling
+  children.forEach((child, index) => {
+    const newFiber = {
+      type: child.type,
+      props: child.props,
+      parent: fiber,
+      dom: null
+    }
+    if(index === 0){
+      fiber.child = newFiber
+    } else {
+      prevSibling.sibling = newFiber
+    }
+    prevSibling = newFiber
+  })
+  // 第四步，查找下一个工作单元
+  if(fiber.child){
+    return fiber.child
+  }
+  let nextFiber = fiber
+  while(nextFiber){
+    if(nextFiber.sibling){
+      return nextFiber.sibling
+    }
+    nextFiber = nextFiber.parent
+  }
+ 
+}
+const Didact = {
+  createElement:  (type, props, ...children) => {
+    return {
+      type,
+      props: {
+        ...props,
+        children: children.map(child => {
+          if(typeof child === 'object'){
+            return child
+          }
+          return {
+            type: 'TEXT_ELEMENT',
+            props: {
+              nodeValue: child,
+              children: [],
+            }
+          }
+        })
+      }
+    }
+  },
+  render
+}
+```
