@@ -446,3 +446,312 @@ const Didact = {
   render
 }
 ```
+
+## STEP 6：实现 Reconcilation
+
+目前为止，我们只考虑添加 dom 节点到容器上这一单一场景，更新伤处还没实现
+
+我们需要对比最新的 **React Element Tree** 和最近一次的 **Fiber Tree** 的差异
+
+我们需要在提交之后保存 **Fiber Tree** 的引用，我们称之为 **currentRoot**
+
+**我们需要给每个 fiber 节点添加一个 alternate 属性来保存旧的 fiber 节点**
+
+alternate保存的旧的fiber节点主要有以下几个用途:
+* 复用旧 fiber  节点上的真实 dom 节点
+* 旧 fiber 节点上的 props 和新的 element 节点的 props 对比
+* 旧 fiber 节点上保存有更新的队列，在创建新的 fiber 节点时执行这些队列以获取最新的页面
+```tsx
+const children = fiber.props.children
+reconcileChilren(fiber, children)
+function reconcileChildren(wipFiber, elements) {
+    let index = 0
+    // oldFiber：fiber 节点中的第一个子节点的引用
+    let oldFiber = wipFiber.alternate && wipFiber.alternate.child
+    let prevSibling = null
+    while (index < elements.length || oldFiber != null) {
+      const element = elements[index]
+      let newFiber = null
+      const sameType = oldFiber && element && element.type == oldFiber.type
+      if (sameType) {
+        newFiber = {
+          type: oldFiber.type,
+          props: element.props,
+          dom: oldFiber.dom,
+          parent: wipFiber,
+          alternate: oldFiber,
+          effectTag: "UPDATE",
+        }
+      }
+      if (element && !sameType) {
+        newFiber = {
+          type: element.type,
+          props: element.props,
+          dom: null,
+          parent: wipFiber,
+          alternate: null,
+          effectTag: "PLACEMENT",
+        }
+      }
+      if (oldFiber && !sameType) {
+        oldFiber.effectTag = "DELETION"
+        deletions.push(oldFiber)
+      }
+      if (oldFiber) {
+        oldFiber = oldFiber.sibling
+      }
+      if (index === 0) {
+        wipFiber.child = newFiber
+      } else if (element) {
+        prevSibling.sibling = newFiber
+      }
+      prevSibling = newFiber
+      index++
+    }      
+}
+```
+协调过程：
+* 本质上依然是根据**新的 React Element Tree** 创建新的 **Fiber Tree**，不过为了节省内存开销，协调过程会判断新的 fiber 节点能否复用旧的 fiber 节点上的真实 dom 元素，如果能复用，就不需要再从头到尾全部重新创建一遍真实的 dom 元素。同时每个新 fiber 节点上还会保存着对旧 fiber 节点的引用，方便在 commit 阶段做新旧属性 props 的对比。
+* 如果 **old fiber.type** 和 **new fiber.type** 相同，则保留旧的 dom 节点，只更新 props 属性。
+* 如果 **type** 不相同并且有 new element，则创建一个新的真实 dom 节点。
+* 如果 **type** 不相同并且有 old fiber 节点，则删除该节点对应的真实 dom 节点。
+* 删除节点需要有个专门的数组收集需要删除的旧的 fiber 节点。由于新的 element tree 创建出来的新的 fiber tree 不存在对应的 dom，因此需要收集旧的 fiber 节点，并在 commit 阶段删除。
+
+**注意，协调过程，还是以最新的React Element Tree为主去创建一个新的fiber tree，只不过是新的fiber节点复用旧的fiber节点的真实dom元素，毕竟频繁创建真实dom是很消耗内存的。新的fiber节点还是会保存着对旧的fiber节点的引用，方便在commit阶段进行新属性和旧属性的比较。这里会有个问题，如果新fiber节点保留旧fiber节点的引用，那么随着更新次数越来越多，旧的fiber tree是不是也会越来越多，如何销毁？**
+
+最终代码：
+```tsx
+function createDom(fiber) {
+  const dom = fiber.type === 'TEXT_ELEMENT' ? document.createTextNode("") : document.createElement(fiber.type)
+  updateDom(dom, {}, fiber.props)
+  return dom
+}
+let nextUnitOfWork = null
+let wipRoot = null // 保存着对root fiber的引用
+let currentRoot = null // 保存着当前页面对应的fiber tree
+let deletions = null
+function render(element, container){
+  wipRoot = {
+    dom: container,
+    props: {
+      children: [element], // 此时的element还只是React.createElement函数创建的virtual dom树
+    },
+    alternate: currentRoot,
+  }
+  deletions = []
+  nextUnitOfWork = wipRoot
+}
+function commitRoot(){
+  deletions.forEach(commitWork)
+  commitWork(wipRoot.child)
+  currentRoot = wipRoot
+  wipRoot = null
+}
+const isEvent = key => key.startsWith("on")
+const isProperty = key => key !== "children" && !isEvent(key)
+const isNew = (prev, next) => key => prev[key] !== next[key]
+const isGone = (prev, next) => key => !(key in next)
+function updateDom(dom, prevProps, nextProps) {
+  //Remove old or changed event listeners
+  Object.keys(prevProps)
+    .filter(isEvent)
+    .filter(
+      key =>
+        !(key in nextProps) ||
+        isNew(prevProps, nextProps)(key)
+    )
+    .forEach(name => {
+      const eventType = name
+        .toLowerCase()
+        .substring(2)
+      dom.removeEventListener(
+        eventType,
+        prevProps[name]
+      )
+    })
+  // Remove old properties
+  Object.keys(prevProps)
+    .filter(isProperty)
+    .filter(isGone(prevProps, nextProps))
+    .forEach(name => {
+      dom[name] = ""
+    })
+  // Set new or changed properties
+  Object.keys(nextProps)
+    .filter(isProperty)
+    .filter(isNew(prevProps, nextProps))
+    .forEach(name => {
+      dom[name] = nextProps[name]
+    })
+  // Add event listeners
+  Object.keys(nextProps)
+    .filter(isEvent)
+    .filter(isNew(prevProps, nextProps))
+    .forEach(name => {
+      const eventType = name
+        .toLowerCase()
+        .substring(2)
+      dom.addEventListener(
+        eventType,
+        nextProps[name]
+      )
+    })
+}
+function commitWork(fiber){
+  if(!fiber){
+    return
+  }
+  const domParent = fiber.parent.dom;
+  if (fiber.effectTag === "PLACEMENT" && fiber.dom != null) {
+    domParent.appendChild(fiber.dom)
+  } else if (fiber.effectTag === "UPDATE" && fiber.dom != null) {
+    updateDom(
+      fiber.dom,
+      fiber.alternate.props,
+      fiber.props
+    )
+  } else if (fiber.effectTag === "DELETION") {
+    domParent.removeChild(fiber.dom)
+  }
+  commitWork(fiber.child)
+  commitWork(fiber.sibling)
+}
+function workLoop(deadline) {
+  let shouldYield = false
+  while (nextUnitOfWork && !shouldYield) {
+    nextUnitOfWork = performUnitOfWork(nextUnitOfWork)
+    shouldYield = deadline.timeRemaining() < 1
+  }
+  if(!nextUnitOfWork && wipRoot){
+    commitRoot()
+  }
+  requestIdleCallback(workLoop)
+}
+requestIdleCallback(workLoop)
+function reconcileChildren(wipFiber, elements) {
+  let index = 0
+  let oldFiber =
+      wipFiber.alternate && wipFiber.alternate.child
+  let prevSibling = null
+  while (index < elements.length || oldFiber != null) {
+    const element = elements[index]
+    let newFiber = null
+    const sameType = oldFiber && element && element.type == oldFiber.type
+    if (sameType) {
+      newFiber = {
+        type: oldFiber.type,
+        props: element.props,
+        dom: oldFiber.dom,
+        parent: wipFiber,
+        alternate: oldFiber,
+        effectTag: "UPDATE",
+      }
+    }
+    if (element && !sameType) {
+      newFiber = {
+        type: element.type,
+        props: element.props,
+        dom: null,
+        parent: wipFiber,
+        alternate: null,
+        effectTag: "PLACEMENT",
+      }
+    }
+    if (oldFiber && !sameType) {
+      oldFiber.effectTag = "DELETION"
+      deletions.push(oldFiber)
+    }
+    if (oldFiber) {
+      oldFiber = oldFiber.sibling
+    }
+    if (index === 0) {
+      wipFiber.child = newFiber
+    } else if (element) {
+      prevSibling.sibling = newFiber
+    }
+    prevSibling = newFiber
+    index++
+  }
+}
+function performUnitOfWork(fiber) {
+  // 第一步 根据fiber节点创建真实的dom节点，并保存在fiber.dom属性中
+  if(!fiber.dom){
+    fiber.dom = createDom(fiber)
+  }
+  // 第二步 将当前fiber节点的真实dom添加到父节点中，注意，这一步是会触发浏览器回流重绘的！！！
+  // if(fiber.parent){
+  //   fiber.parent.dom.appendChild(fiber.dom)
+  // }
+  // 第三步 给子元素创建对应的fiber节点
+  const children = fiber.props.children
+  // let prevSibling
+  // children.forEach((child, index) => {
+  //   const newFiber = {
+  //     type: child.type,
+  //     props: child.props,
+  //     parent: fiber,
+  //     dom: null
+  //   }
+  //   if(index === 0){
+  //     fiber.child = newFiber
+  //   } else {
+  //     prevSibling.sibling = newFiber
+  //   }
+  //   prevSibling = newFiber
+  // })
+  reconcileChildren(fiber, children)
+  // 第四步，查找下一个工作单元
+  if(fiber.child){
+    return fiber.child
+  }
+  let nextFiber = fiber
+  while(nextFiber){
+    if(nextFiber.sibling){
+      return nextFiber.sibling
+    }
+    nextFiber = nextFiber.parent
+  }
+ 
+}
+const Dideact = {
+  createElement:  (type, props, ...children) => {
+    return {
+      type,
+      props: {
+        ...props,
+        children: children.map(child => {
+          if(typeof child === 'object'){
+            return child
+          }
+          return {
+            type: 'TEXT_ELEMENT',
+            props: {
+              nodeValue: child,
+              children: [],
+            }
+          }
+        })
+      }
+    }
+  },
+  render
+}
+/** @jsx Dideact.createElement */
+const container = document.getElementById("root")
+const updateValue = e => {
+  rerender(e.target.value)
+}
+const rerender = value => {
+  const element = (
+    <div>
+      <input onInput={updateValue} value={value} />
+      <h2>Hello {value}</h2>
+    </div>
+  )
+ Dideact.render(element, container)
+}
+rerender("World")
+```
+
+## STEP 7：实现函数组件
+我们需要支持函数组件
