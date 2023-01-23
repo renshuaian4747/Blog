@@ -236,6 +236,6 @@ console.timeEnd('set find');
 ```
 ## Reduce 求和
 ```js
-const arr = [1, 2, 3, 4, 5];
+const arr = [1, 2, 3, 4, 5];g
 const result = arr.reduce((sum, curV, index, arr) =>  sum + curV, 0)
 ```
