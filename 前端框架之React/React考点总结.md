@@ -168,7 +168,7 @@ setTimeout(() => {
 * React.Suspense
 * React.lazy
 
-# 性能优化
+## 性能优化
 * 性能优化对 React 很重要
 * SCU（ShouldComponentUpdate）
 * PureComponent 和 React.memo
