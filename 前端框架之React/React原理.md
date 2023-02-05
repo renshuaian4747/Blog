@@ -190,3 +190,96 @@ foo2() {
 * 将 reconciliation 阶段进行任务拆分（commit 阶段是浏览器渲染页面，无法拆分）
 * DOM 需要渲染时暂停计算，空闲时恢复
 * 使用的 API：window.requestIdleCallback
+
+## 前端路由原理
+### 一、hash 的特点
+* hash 变化会触发网页的跳转，即浏览器前进后退
+* hash 变化不会刷新页面，SPA 的必需点
+* hash 永远不会提交到 server 端
+```html
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+
+<body>
+  <p>hash test</p>
+  <button id="btn">修改 hash</button>
+</body>
+<script>
+  // hash 变化包括
+  // js 修改 url
+  // 手动修改 url 的 hash
+  // 浏览器前进、后退
+  window.onhashchange = (event) => {
+    console.log(event)
+    console.log('old url---', event.oldURL);
+    console.log('new url---', event.newURL);
+    console.log('hash---', location.hash)
+  }
+
+  // 页面初次加载获取 hash
+  window.addEventListener('DOMContentLoaded', () => {
+    console.log('hash---', location.hash);
+  })
+
+  // js 修改 hash
+  document.getElementById('btn').addEventListener('click', () => {
+    location.href = '#/user'
+  })
+</script>
+
+</html>
+```
+### 二、H5 History
+* 用 url 规范的路由，但跳转时不刷新页面
+* 通过两个方式实现：
+  1. history.pushState()
+  2. window.onpopstate()
+```html
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+
+<body>
+  <p>history API test</p>
+  <button id="btn">修改 url</button>
+</body>
+<script>
+  // 页面初次加载获取 path
+  window.addEventListener('DOMContentLoaded', () => {
+    console.log('pathname---', location.pathname);
+  })
+
+  // 打开一个新路由
+  // 【注意】用 pushState 方式，页面不会刷新
+  document.getElementById('btn').addEventListener('click', () => {
+    const state = {
+      name: 'page1'
+    };
+    console.log('切换路由');
+    history.pushState(state, '', 'page1');
+  })
+
+  // 监听浏览器前进、后退
+  window.onpopstate = (event) => {
+    console.log('onpopstate---', event.state, location.pathname);
+  }
+
+  // H5 History 需要后端支持
+  // 无论什么样的 url 始终返回 index，由前端处理路由
+</script>
+
+</html>
+```
