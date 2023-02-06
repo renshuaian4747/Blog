@@ -300,7 +300,7 @@ if(module.hot) {
 ```
 #### 6.DllPlugin 动态链接库
 
-### 一、优化产出代码
+### 二、优化产出代码
 **体积更小；合理分包，不重复加载；执行更快，使用内存更小**
 * 小图片用 base64 格式输出
 * bundle 加 hash（webpack 高级配置）
@@ -310,7 +310,7 @@ if(module.hot) {
 * 使用 CDN 加速
 * 使用 production
 * Scope Hosting
-#### 一、图片使用 base64、使用 CDN 加速
+#### 1、图片使用 base64、使用 CDN 加速
 ```js
 output: {
   publicPath: 'http://cdn.abc.com'  // 修改所有静态文件 url 的前缀（如 cdn 域名）
@@ -336,7 +336,7 @@ module: {
   ]
 }
 ```
-#### 二、使用 production
+#### 2、使用 production
 * 自动开启代码压缩
 * Vue React 等会自动删除调试代码（如开发环境的 warning）
 * 启动 Tree-Shaking（为使用的代码不会进入打包）
@@ -344,6 +344,6 @@ module: {
   1. ES6 Module 静态引入，编译时引入
   2. CommonJs 动态引入，执行时引入
 
-#### 三、Scope Hosting
+#### 3、Scope Hosting
 * 代码体积更小
 * 创建的函数作用域越少
