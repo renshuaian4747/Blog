@@ -295,3 +295,76 @@ function throttle(fn, delay = 100) {
 * Server 发包，Client 接收。Client：Server 已收到，等待传输结束
 * Server 发包，Client 接收。Client：Server 传输结束，可以关闭连接
 * Client 发包，Server 接收。Server：可以关闭了
+
+## for in 和 for of
+### for in
+* for in 得到 key（不能用于 Map、Set、generator）
+* for in 用于可枚举的数据，如对象、数组、字符串
+### for of
+* for of 得到 value（不能用于 Object）
+* for of 用于可迭代的数据，如数组、字符串、Map、Set
+### for awiat of
+* for awiat of 用于遍历多个 Promise（Promise.all 的代替品）
+```js
+function foo(n) {
+  return new Promise((rev) => {
+    setTimeout(() => {
+      rev(n)
+    }, 1000)
+  })
+}
+(async function() {
+  const p1 = foo(100);
+  const p2 = foo(200);
+  const p3 = foo(300);
+
+  const list = [p1, p2, p3];
+  Promise.all(list).then(res => console.log(res));
+  // or
+  for await (let res of list) {
+    console.log(res);
+  }
+})()
+```
+
+## offsetHeight、scrollHeight、clientHeight
+* offset：content + padding + border
+* client：content + padding
+* scroll：实际内容尺寸 + padding（含可滚动内容）
+
+## HTMLCollection 和 NodeList
+* HTMLCollection 是 element 的集合
+* NodeList 是 Node 的集合
+### 一、Node 和 Element
+* DOM 是一棵树，所有的节点都是 Node
+* Node 是 Element 的基类
+* Element 是其他 HTML 元素的基类，如 HTMLDivElement
+
+```html
+<p>
+  <b></b>
+  <em></em>
+  <!-- 注释 -->
+</p>
+<script>
+  const p = document.getElementsByTagName('p');
+  p.children instanceof HTMLCollection // true
+  p.childNodes instanceof NodeList // true
+</script>
+```
+
+## JS 严格模式
+- 全局变量必须声明
+- 禁止使用 with
+- 创建 eval 作用域
+- 禁止 this 指向全局作用域
+- 函数参数不能重名
+
+## JS 垃圾回收
+* 回收函数执行完成后，已经引用不到的一些内存
+* 算法：
+  1. 引用计数（之前）
+  2. 标记清除（现代）
+
+## JS 检测内存泄露
+* dev tools 中 Performance 中查看 HEAP 的曲线
