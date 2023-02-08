@@ -239,3 +239,59 @@ console.timeEnd('set find');
 const arr = [1, 2, 3, 4, 5];g
 const result = arr.reduce((sum, curV, index, arr) =>  sum + curV, 0)
 ```
+
+## Ajax、Fetch、Axios
+* Ajax 是一种技术的统称
+* fetch 是一个具体的 Api
+* Axios 是一个第三方库
+
+## 手写防抖节流
+```js
+// 防抖 debounce
+function debounce(fn, delay = 500) {
+  let timer;
+  return function () {
+    if (timer) {
+      clearTimeout(timer);
+    }
+    timer = setTimeout(() => {
+      fn.apply(this, arguments);
+      timer = null;
+    }, delay)
+  }
+}
+// 节流 throttle
+function throttle(fn, delay = 100) {
+  let timer;
+  return function () {
+    if (timer) {
+      return;
+    }
+    timer = setTimeout(() => {
+      fn.apply(this, arguments);
+      timer = null;
+    }, delay)
+  }
+}
+```
+
+## 箭头函数
+* 没有 arguments
+* 使用父作用域的 this，无法用 call、apply、bind 修改 this
+* 动态上下文中的回调函数，如果要用 this，不能用箭头函数
+
+## 描述 TCP 三次握手四次挥手
+* 先建立连接（确保双方都有收发消息的能力）
+* 再传输内容（发起请求）
+* 网络连接是 TCP 协议，传输内容是 HTTP 协议
+
+### 一、建立连接（三次握手）
+* Client 发包，Server 接收。Server：有 Client 要找我
+* Server 发包，Client 接收。Client：Server 已经收到信息了
+* Client 发包，Server 接收。Server：Client 准备要发送了
+
+### 二、断开连接（四次挥手）
+* Client 发包，Server 接收。Server：Client 请求结束
+* Server 发包，Client 接收。Client：Server 已收到，等待传输结束
+* Server 发包，Client 接收。Client：Server 传输结束，可以关闭连接
+* Client 发包，Server 接收。Server：可以关闭了

@@ -12,7 +12,7 @@ class MyComponent {
   foo() {
     console.log(this); // 若不绑定 this，this 为 undefined
   }
-  // 用静态声明不需要绑定 this（剪头函数）
+  // 用静态声明不需要绑定 this（箭头函数）
   foo2 = () => {
     console.log(this);
   }
