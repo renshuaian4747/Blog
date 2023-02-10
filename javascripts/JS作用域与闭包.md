@@ -12,7 +12,7 @@ function create() {
 }
 const fn = create();
 const a = 200;
-console.log(a) // 100
+fn() // 100
 
 // 函数作为参数
 function print(fn) {
