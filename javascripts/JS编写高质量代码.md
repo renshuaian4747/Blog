@@ -231,3 +231,46 @@ Function.prototype.myApply = function (context, args = []) {
   delete context[fnKey]
 }
 ```
+
+## 手写深拷贝
+* 功能完整性：考虑多种数据结构
+* 鲁棒性： 考虑循环引用
+```js
+function cloneDeep (obj, map = new WeakMap()) {
+  if (typeof obj !== 'object' || obj == null) return obj // 基本类型、null、undefined、function
+
+  // 考虑循环引用
+  if (map.get(obj)) return map.get(obj);
+
+  let target = {};
+  map.set(obj, target);
+  // Map
+  if (obj instanceof Map) {
+    target = new Map();
+    obj.forEach((v, k) => {
+      const newV = cloneDeep(v, map);
+      const newK = cloneDeep(k, map);
+      target.set(newK, newV);
+    })
+  }
+  // Set
+  if (obj instanceof Set) {
+    target = new Set();
+    obj.forEach((v) => {
+      target.add(cloneDeep(v, map));
+    })
+  }
+  // Array
+  if (obj instanceof Array) {
+    target = obj.map((v) => cloneDeep(v, map));
+  }
+  // Object
+  if (obj.__proto__.constructor === Object) {
+    for(let k in obj) {
+      target[k] = cloneDeep(obj[k], map);
+    }
+  }
+
+  return target;
+}
+```

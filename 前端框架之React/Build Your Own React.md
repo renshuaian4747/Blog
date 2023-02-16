@@ -755,3 +755,28 @@ rerender("World")
 
 ## STEP 7：实现函数组件
 我们需要支持函数组件
+```js
+function App(props) {
+  return <h1>Hi {props.name}</h1>
+}
+const element = <App name="foo" />
+const container = document.getElementById("root")
+Didact.render(element, container)
+```
+经过babel之后，我们得到
+```js
+function App(props) {
+  return Didact.createElement("h1", null, "Hi ", props.name);
+}
+
+const element = Didact.createElement(App, {
+  name: "foo"
+});
+const container = document.getElementById("root");
+Didact.render(element, container);
+```
+与之前Dom组件的对比，我们得到两点不同的地方:
+  * 函数组件对应的 fiber 节点没有对应的真实 dom 元素
+  * 需要执行函数才能获取对应的 children 节点，而不是直接从 props.children 获取
+
+由于函数组件没有对应的fiber节点，因此在commit阶段在找父fiber节点对应的dom时，需要判断是否存在该dom元素
