@@ -339,7 +339,7 @@ module: {
 #### 2、使用 production
 * 自动开启代码压缩
 * Vue React 等会自动删除调试代码（如开发环境的 warning）
-* 启动 Tree-Shaking（为使用的代码不会进入打包）
+* 启动 Tree-Shaking（未使用的代码不会进入打包）
 **只有使用 ES6 Module Tree-Shaking 才会生效，CommonJs 不行**
   1. ES6 Module 静态引入，编译时引入
   2. CommonJs 动态引入，执行时引入
